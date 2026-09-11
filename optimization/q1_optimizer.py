@@ -1,9 +1,4 @@
 
-"""
-CUMCM 2026 国赛 C题
-Question 1 Linear Programming Optimizer
-"""
-
 import numpy as np
 from scipy.optimize import linprog
 
@@ -11,7 +6,6 @@ from scipy.optimize import linprog
 def optimize_day(price, load, pv, battery):
     n = len(price)
 
-    # 10-minute interval
     DELTA_T = 10 / 60
 
     # Convert power(kW) → energy(kWh)
