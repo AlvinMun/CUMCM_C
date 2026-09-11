@@ -125,6 +125,39 @@ class DataLoader:
 
         return result
 
+    def load_attachment4(self):
+        """
+        Load Attachment 4 (全年波动电价).
+
+        Returns
+        -------
+        list[dict]
+            Each element represents one day:
+            {
+                "date": Timestamp,
+                "price": ndarray(144)
+            }
+        """
+
+        file_path = self.data_folder / "附件4.xlsx"
+
+        df = pd.read_excel(file_path)
+
+        date_col = df.columns[0]
+
+        df[date_col] = pd.to_datetime(df[date_col])
+
+        price_days = []
+
+        for _, row in df.iterrows():
+
+            price_days.append({
+                "date": row[date_col],
+                "price": row.iloc[1:].to_numpy(dtype=float),
+            })
+
+        return price_days
+
     # Daily iterator
     def split_into_days(self, attachment2):
 
