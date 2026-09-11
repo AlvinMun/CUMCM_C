@@ -9,8 +9,6 @@ from utils.q2_plotting import (
     plot_annual_statistics,
 )
 
-# Project paths
-
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 DATA_FOLDER = PROJECT_ROOT / "data"
@@ -28,7 +26,6 @@ def main():
     print("问题二：全年储能优化调度")
     print("=" * 60)
 
-    # Load data
     loader = DataLoader(DATA_FOLDER)
 
     attachment2 = loader.load_attachment2()
@@ -36,11 +33,7 @@ def main():
 
     print(f"\n成功读取全年数据：{len(year_data)} 天")
 
-    # Electricity price (same every day)
-
     price = loader.load_attachment1()["电价"].to_numpy()
-
-    # Battery parameters
 
     battery = Battery(
         capacity=12000,
@@ -52,9 +45,7 @@ def main():
     )
 
     current_soc = battery.initial_energy
-    dt = 1 / 6  # 10 minutes = 1/6 hour
-
-    # Representative days
+    dt = 1 / 6
 
     representative_days = {
         "春分": "2025-03-20",
@@ -65,8 +56,6 @@ def main():
 
     representative_results = {}
 
-    # Containers
-
     daily_summary = []
 
     planned_purchase_all = []
@@ -76,7 +65,9 @@ def main():
     storage_all = []
     curtailment_all = []
 
-    # Optimize whole year
+    # --------------------------------------------------
+    # Annual optimization
+    # --------------------------------------------------
 
     for i, day in enumerate(year_data):
 
@@ -90,7 +81,6 @@ def main():
 
         current_soc = result["end_energy"]
 
-        # Store copies and convert power(kW) -> energy(kWh)
         planned_purchase_all.append(result["planned_purchase"].copy() * dt)
         emergency_purchase_all.append(result["emergency_purchase"].copy() * dt)
         charge_all.append(result["charge"].copy() * dt)
@@ -126,77 +116,151 @@ def main():
         if (i + 1) % 50 == 0:
             print(f"已完成 {i+1}/{len(year_data)} 天")
 
-    # Create summary dataframe
-
     summary_df = pd.DataFrame(daily_summary)
 
-    # Create trajectory dataframes
+    # --------------------------------------------------
+    # Official template starts from 2025-02-01
+    # --------------------------------------------------
+
+    start_idx = summary_df[summary_df["日期"].astype(str) == "2025-02-01"].index[0]
+
+    summary_export = summary_df.iloc[start_idx:].reset_index(drop=True)
+
+    planned_purchase_export = planned_purchase_all[start_idx:]
+    emergency_export = emergency_purchase_all[start_idx:]
+    charge_export = charge_all[start_idx:]
+    discharge_export = discharge_all[start_idx:]
+    storage_export = storage_all[start_idx:]
+    curtailment_export = curtailment_all[start_idx:]
+
+    # --------------------------------------------------
+    # Sheet 1
+    # --------------------------------------------------
 
     time_labels = [
-        f"{(10 * (i + 1)) // 60:02d}:{(10 * (i + 1)) % 60:02d}"
+        f"{(10*(i+1))//60:02d}:{(10*(i+1))%60:02d}"
         for i in range(144)
     ]
 
+    planned_purchase_df = pd.DataFrame(
+        planned_purchase_export,
+        columns=time_labels,
+    )
+
+    planned_purchase_df.insert(0, "日期", summary_export["日期"])
+
+    # --------------------------------------------------
+    # Sheet 2
+    # --------------------------------------------------
+
+    periods = [
+        "0:00-4:00",
+        "4:00-8:00",
+        "8:00-12:00",
+        "12:00-16:00",
+        "16:00-20:00",
+        "20:00-24:00",
+    ]
+
+    charge_summary = []
+
+    for day_idx in range(len(summary_export)):
+
+        charge = charge_export[day_idx]
+        discharge = discharge_export[day_idx]
+        soc = storage_export[day_idx]
+
+        for block in range(6):
+
+            s = block * 24
+            e = s + 24
+
+            row = {
+                "日期": summary_export.iloc[day_idx]["日期"] if block == 0 else "",
+                "时间段": periods[block],
+                "充电量": float(charge[s:e].sum()),
+                "放电量": float(discharge[s:e].sum()),
+                "时刻": "",
+                "储电量": "",
+            }
+
+            if block == 0:
+                row["时刻"] = "0:00"
+                row["储电量"] = float(soc[0])
+
+            if block == 5:
+                row["时刻"] = "24:00"
+                row["储电量"] = float(soc[-1])
+
+            charge_summary.append(row)
+
+    charge_summary_df = pd.DataFrame(charge_summary)
+
+    # --------------------------------------------------
+    # Sheet 3
+    # --------------------------------------------------
+
+    emergency_rows = []
+
+    for day_idx in range(len(summary_export)):
+
+        emergency = emergency_export[day_idx]
+        date = summary_export.iloc[day_idx]["日期"]
+
+        has_event = False
+
+        for i, value in enumerate(emergency):
+
+            if value > 1e-6:
+
+                sh = (i * 10) // 60
+                sm = (i * 10) % 60
+                eh = ((i + 1) * 10) // 60
+                em = ((i + 1) * 10) % 60
+
+                emergency_rows.append({
+                    "日期": date,
+                    "紧急购电时间段": f"{sh:02d}:{sm:02d}-{eh:02d}:{em:02d}",
+                    "紧急购电量": float(value),
+                })
+
+                has_event = True
+
+        if not has_event:
+            emergency_rows.append({
+                "日期": date,
+                "紧急购电时间段": "",
+                "紧急购电量": "",
+            })
+
+    emergency_df = pd.DataFrame(emergency_rows)
+
+    # --------------------------------------------------
+    # Extra analysis files
+    # --------------------------------------------------
+
     storage_labels = ["00:00"] + time_labels
 
-    planned_purchase_df = pd.DataFrame(
-        data=planned_purchase_all,
-        columns=time_labels,
-        dtype=float,
+    storage_df = pd.DataFrame(
+        storage_export,
+        columns=storage_labels,
     )
-
-    emergency_purchase_df = pd.DataFrame(
-        data=emergency_purchase_all,
-        columns=time_labels,
-        dtype=float,
-    )
-
-    charge_df = pd.DataFrame(
-        data=charge_all,
-        columns=time_labels,
-        dtype=float,
-    )
-
-    discharge_df = pd.DataFrame(
-        data=discharge_all,
-        columns=time_labels,
-        dtype=float,
-    )
+    storage_df.insert(0, "日期", summary_export["日期"])
 
     curtailment_df = pd.DataFrame(
-        data=curtailment_all,
+        curtailment_export,
         columns=time_labels,
-        dtype=float,
     )
+    curtailment_df.insert(0, "日期", summary_export["日期"])
 
-    storage_df = pd.DataFrame(
-        data=storage_all,
-        columns=storage_labels,
-        dtype=float,
-    )
-
-    for df in [
-        planned_purchase_df,
-        emergency_purchase_df,
-        charge_df,
-        discharge_df,
-        curtailment_df,
-        storage_df,
-    ]:
-        df.insert(0, "日期", summary_df["日期"])
-
-    # Export Excel
+    # --------------------------------------------------
+    # Export official result2.xlsx
+    # --------------------------------------------------
 
     with pd.ExcelWriter(
-        RESULTS_FOLDER / "问题二全年优化结果.xlsx",
+        RESULTS_FOLDER / "result2.xlsx",
         engine="openpyxl",
     ) as writer:
-
-        summary_df.to_excel(
-            writer,
-            sheet_name="全年统计",
-            index=False,
-        )
 
         planned_purchase_df.to_excel(
             writer,
@@ -204,57 +268,19 @@ def main():
             index=False,
         )
 
-        charge_df.to_excel(
+        charge_summary_df.to_excel(
             writer,
-            sheet_name="充电量",
+            sheet_name="充放电量",
             index=False,
         )
 
-        discharge_df.to_excel(
+        emergency_df.to_excel(
             writer,
-            sheet_name="放电量",
+            sheet_name="紧急购电量",
             index=False,
         )
 
-        curtailment_df.to_excel(
-            writer,
-            sheet_name="弃光量",
-            index=False,
-        )
-
-        emergency_purchase_df.to_excel(
-            writer,
-            sheet_name="应急购电量",
-            index=False,
-        )
-
-        storage_df.to_excel(
-            writer,
-            sheet_name="储能SOC",
-            index=False,
-        )
-
-    # Export individual Excel files
-
-    planned_purchase_df.to_excel(
-        RESULTS_FOLDER / "问题二计划购电量.xlsx",
-        index=False,
-    )
-
-    emergency_purchase_df.to_excel(
-        RESULTS_FOLDER / "问题二应急购电量.xlsx",
-        index=False,
-    )
-
-    charge_df.to_excel(
-        RESULTS_FOLDER / "问题二充电量.xlsx",
-        index=False,
-    )
-
-    discharge_df.to_excel(
-        RESULTS_FOLDER / "问题二放电量.xlsx",
-        index=False,
-    )
+    # Extra files (not required)
 
     storage_df.to_excel(
         RESULTS_FOLDER / "问题二储能SOC.xlsx",
@@ -266,7 +292,9 @@ def main():
         index=False,
     )
 
-    # Representative-day figures
+    # --------------------------------------------------
+    # Figures
+    # --------------------------------------------------
 
     for season, data in representative_results.items():
 
@@ -280,15 +308,18 @@ def main():
             save_path=FIGURE_FOLDER / f"图2-1_{season}典型日优化调度图.png",
         )
 
-    # Annual figures
+    # Create storage dataframe for plotting (日期 must be the first column)
+    plot_storage_df = pd.DataFrame(
+        storage_all,
+        columns=storage_labels,
+    )
+    plot_storage_df.insert(0, "日期", summary_df["日期"])
 
     plot_annual_statistics(
         summary_df,
-        storage_df,
+        plot_storage_df,
         FIGURE_FOLDER,
     )
-
-    # Print results
 
     print("\n" + "=" * 60)
     print("全年优化完成！")
@@ -298,26 +329,8 @@ def main():
     print(f"全年计划购电量：{summary_df['计划购电量(kWh)'].sum():.2f} kWh")
     print(f"全年应急购电量：{summary_df['应急购电量(kWh)'].sum():.2f} kWh")
     print(f"全年弃光量：{summary_df['弃光量(kWh)'].sum():.2f} kWh")
-    print(f"年末SOC：{current_soc:.2f} kWh")
 
-    print("\n已生成结果文件：")
-    print(" - 问题二全年优化结果.xlsx")
-    print(" - 问题二计划购电量.xlsx")
-    print(" - 问题二应急购电量.xlsx")
-    print(" - 问题二充电量.xlsx")
-    print(" - 问题二放电量.xlsx")
-    print(" - 问题二储能SOC.xlsx")
-    print(" - 问题二弃光量.xlsx")
-
-    print("\n已生成图表：")
-    print(" - 图2-1_春分典型日优化调度图.png")
-    print(" - 图2-1_夏至典型日优化调度图.png")
-    print(" - 图2-1_秋分典型日优化调度图.png")
-    print(" - 图2-1_冬至典型日优化调度图.png")
-    print(" - 图2-5a_全年每日购电成本.png")
-    print(" - 图2-5b_全年弃光量.png")
-    print(" - 图2-5c_全年储能SOC连续变化.png")
-    print(" - 图2-5d_全年储能日终SOC变化.png")
+    print("\n已生成：result2.xlsx")
 
 
 if __name__ == "__main__":
