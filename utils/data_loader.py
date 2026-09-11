@@ -68,6 +68,63 @@ class DataLoader:
             "pv": pv,
         }
 
+    def load_attachment3(self):
+        """
+        Read Attachment 3 (PV forecast).
+
+        Returns:
+            list of 365 dictionaries.
+
+        Each day contains:
+            {
+                "date": datetime,
+                "forecast": {
+                    "0:00": np.array(144),
+                    "6:00": np.array(144),
+                    "12:00": np.array(144),
+                    "18:00": np.array(144),
+                }
+            }
+        """
+
+        import pandas as pd
+        import numpy as np
+
+        file = self.data_folder / "附件3.xlsx"
+
+        df = pd.read_excel(file)
+
+        result = []
+
+        i = 0
+        while i < len(df):
+
+            date = pd.to_datetime(df.iloc[i, 0])
+
+            forecasts = {}
+
+            for j in range(4):
+
+                row = df.iloc[i + j]
+
+                release = str(row["预报时刻"])
+
+                hourly = row.iloc[2:26].to_numpy(dtype=float)
+
+                # Expand 24 hourly values → 144 ten-minute values
+                ten_min = np.repeat(hourly, 6)
+
+                forecasts[release] = ten_min
+
+            result.append({
+                "date": date,
+                "forecast": forecasts,
+            })
+
+            i += 4
+
+        return result
+
     # Daily iterator
     def split_into_days(self, attachment2):
 
