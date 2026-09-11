@@ -16,17 +16,13 @@ class DataLoader:
         )
         return df
 
-    # -------------------------------------------------
     # Question 1
-    # -------------------------------------------------
     def load_attachment1(self):
         file = self.data_folder / "附件1.xlsx"
         df = pd.read_excel(file)
         return self.clean_columns(df)
 
-    # -------------------------------------------------
     # Question 2
-    # -------------------------------------------------
     def load_attachment2(self):
         """
         Read the official Attachment 2.
@@ -72,9 +68,7 @@ class DataLoader:
             "pv": pv,
         }
 
-    # -------------------------------------------------
     # Daily iterator
-    # -------------------------------------------------
     def split_into_days(self, attachment2):
 
         days = []

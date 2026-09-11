@@ -1,25 +1,11 @@
 
-"""
-CUMCM 2026 国赛 C题
-Question 2 Optimizer
-
-LP model with:
-- Planned purchase
-- Emergency purchase
-- Battery storage
-- Curtailment
-- Cross-day battery continuity
-"""
-
 import numpy as np
 from scipy.optimize import linprog
 
-DELTA_T = 10 / 60  # hour
 
-
-def optimize_day_q2(price, load_kw, pv_kw, battery, initial_energy):
+def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     """
-    Optimize one day (144 intervals).
+    Optimize one day (144 time steps).
 
     Parameters
     ----------
@@ -35,40 +21,36 @@ def optimize_day_q2(price, load_kw, pv_kw, battery, initial_energy):
     """
 
     n = len(price)
+    dt = 1 / 6  # 10 minutes = 1/6 hour
 
-    load = load_kw * DELTA_T
-    pv = pv_kw * DELTA_T
+    # Variable order
+    # [Grid | Charge | Discharge | Curtail | SOC]
 
-    charge_limit = battery.max_charge_power * DELTA_T
-    discharge_limit = battery.max_discharge_power * DELTA_T
+    G0 = 0
+    C0 = G0 + n
+    D0 = C0 + n
+    P0 = D0 + n
+    S0 = P0 + n
+
+    total_vars = S0 + n + 1
+
+    # Objective
+
+    c = np.zeros(total_vars)
+
+    # Purchase cost
+    c[G0:G0 + n] = price * dt
+
+    # Tiny penalty for curtailment
+    c[P0:P0 + n] = 1e-6
+
+    # Equality constraints
+
+    Aeq = []
+    beq = []
 
     eta_c = battery.charge_efficiency
     eta_d = battery.discharge_efficiency
-
-    # Variable order
-    #
-    # G,E,C,D,W,S
-    #
-
-    G0 = 0
-    E0 = G0 + n
-    C0 = E0 + n
-    D0 = C0 + n
-    W0 = D0 + n
-    S0 = W0 + n
-
-    total_vars = 5 * n + (n + 1)
-
-    # Objective
-    c = np.zeros(total_vars)
-
-    c[G0:G0+n] = price
-    c[E0:E0+n] = 5 * price
-
-
-    # Equality constraints
-    Aeq = []
-    beq = []
 
     # Power balance
 
@@ -76,31 +58,30 @@ def optimize_day_q2(price, load_kw, pv_kw, battery, initial_energy):
 
         row = np.zeros(total_vars)
 
-        row[G0+t] = 1
-        row[E0+t] = 1
-        row[C0+t] = -1
-        row[D0+t] = 1
-        row[W0+t] = -1
+        row[G0 + t] = 1
+        row[D0 + t] = 1
+        row[C0 + t] = -1
+        row[P0 + t] = -1
 
         Aeq.append(row)
-        beq.append(load[t] - pv[t])
+        beq.append(load_kw[t] - pv_kw[t])
 
-    # Battery dynamics
+    # SOC dynamics
 
     for t in range(n):
 
         row = np.zeros(total_vars)
 
-        row[S0+t] = -1
-        row[S0+t+1] = 1
+        row[S0 + t] = -1
+        row[S0 + t + 1] = 1
 
-        row[C0+t] = -eta_c
-        row[D0+t] = 1 / eta_d
+        row[C0 + t] = -eta_c * dt
+        row[D0 + t] = dt / eta_d
 
         Aeq.append(row)
         beq.append(0)
 
-    # Initial SOC
+    # Initial SOC ONLY
 
     row = np.zeros(total_vars)
     row[S0] = 1
@@ -111,27 +92,50 @@ def optimize_day_q2(price, load_kw, pv_kw, battery, initial_energy):
     Aeq = np.array(Aeq)
     beq = np.array(beq)
 
-    # Variable bounds
+    # Inequality constraints
+    # Prevent simultaneous charging/discharging
+
+    Aub = []
+    bub = []
+
+    M = max(
+        battery.max_charge_power,
+        battery.max_discharge_power,
+    )
+
+    for t in range(n):
+
+        row = np.zeros(total_vars)
+
+        row[C0 + t] = 1
+        row[D0 + t] = 1
+
+        Aub.append(row)
+        bub.append(M)
+
+    Aub = np.array(Aub)
+    bub = np.array(bub)
+
+    # Bounds
 
     bounds = []
 
-    # Planned purchase
-    bounds.extend([(0, None)] * n)
-
-    # Emergency purchase
+    # Grid
     bounds.extend([(0, None)] * n)
 
     # Charge
-    bounds.extend([(0, charge_limit)] * n)
+    bounds.extend([(0, battery.max_charge_power)] * n)
 
     # Discharge
-    bounds.extend([(0, discharge_limit)] * n)
+    bounds.extend([(0, battery.max_discharge_power)] * n)
 
     # Curtailment
     bounds.extend([(0, None)] * n)
 
-    # Storage
-    bounds.extend([(1200, 10800)] * (n + 1))
+    # SOC
+    soc_min = 0.10 * battery.capacity
+
+    bounds.extend([(soc_min, battery.capacity)] * (n + 1))
 
     # Solve
 
@@ -139,6 +143,8 @@ def optimize_day_q2(price, load_kw, pv_kw, battery, initial_energy):
         c,
         A_eq=Aeq,
         b_eq=beq,
+        A_ub=Aub,
+        b_ub=bub,
         bounds=bounds,
         method="highs",
     )
@@ -150,27 +156,37 @@ def optimize_day_q2(price, load_kw, pv_kw, battery, initial_energy):
 
     x = result.x
 
-    G = x[G0:G0+n]
-    E = x[E0:E0+n]
-    C = x[C0:C0+n]
-    D = x[D0:D0+n]
-    W = x[W0:W0+n]
-    S = x[S0:S0+n+1]
+    grid = x[G0:G0 + n]
+    charge = x[C0:C0 + n]
+    discharge = x[D0:D0 + n]
+    curtail = x[P0:P0 + n]
+    soc = x[S0:S0 + n + 1]
 
-    normal_cost = np.sum(G * price)
-    emergency_cost = np.sum(E * 5 * price)
+    total_cost = np.sum(grid * price * dt)
+
+    # No emergency purchase in current model
+    emergency_purchase = np.zeros(n)
 
     return {
-        "planned_purchase": G,
-        "emergency_purchase": E,
-        "charge": C,
-        "discharge": D,
-        "curtailment": W,
-        "storage": S,
-        "normal_cost": normal_cost,
-        "emergency_cost": emergency_cost,
-        "total_cost": normal_cost + emergency_cost,
-        "end_energy": S[-1],
+
+        "planned_purchase": grid,
+        "grid_purchase": grid,
+        "emergency_purchase": emergency_purchase,
+
+        "charge": charge,
+        "discharge": discharge,
+
+        "storage": soc,
+        "battery_energy": soc,
+
+        "curtailment": curtail,
+
+        "normal_cost": total_cost,
+        "emergency_cost": 0.0,
+        "total_cost": total_cost,
+
+        "end_energy": soc[-1],
+
         "status": result.status,
         "message": result.message,
     }
