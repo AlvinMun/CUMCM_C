@@ -1,5 +1,7 @@
 from pathlib import Path
 from openpyxl import load_workbook
+import matplotlib.pyplot as plt
+import numpy as np
 
 from optimization.q4_rolling_optimizer import optimize_day_q4
 from utils.battery import Battery
@@ -17,6 +19,41 @@ FIGURE_FOLDER.mkdir(exist_ok=True)
 TEMPLATE_PATH = DATA_FOLDER / "result4-3.xlsx"
 OUTPUT_PATH = RESULTS_FOLDER / "result4-3.xlsx"
 
+plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
+plt.rcParams["axes.unicode_minus"] = False
+
+
+# --------------------------------------------------
+# 新增：四种策略全年成本比较图
+# --------------------------------------------------
+
+def plot_cost_comparison(q2, q3, q42, q43, save_path):
+
+    labels = ["问题二", "问题三", "问题四(2)", "问题四(3)"]
+    values = np.array([q2, q3, q42, q43]) / 10000
+
+    plt.figure(figsize=(7, 5))
+    bars = plt.bar(labels, values)
+
+    for b, v in zip(bars, values):
+        plt.text(
+            b.get_x() + b.get_width() / 2,
+            v + 5,
+            f"{v:.1f}",
+            ha="center",
+            fontsize=10,
+        )
+
+    plt.ylabel("总费用(万元)")
+    plt.title("图4-4 四种策略全年成本比较")
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+
+
+# --------------------------------------------------
+# Main
+# --------------------------------------------------
 
 def main():
 
@@ -105,7 +142,10 @@ def main():
 
         current_date = str(day["date"].date())
 
-        # -------- 计划购电量（2月以后） --------
+        # -----------------------------
+        # Sheet1：计划购电量（2月以后）
+        # -----------------------------
+
         if day["date"].month >= 2:
 
             ws_plan.cell(row=plan_row, column=1).value = day["date"].date()
@@ -117,7 +157,10 @@ def main():
 
             plan_row += 1
 
-        # -------- 调整购电量（2月以后） --------
+        # -----------------------------
+        # Sheet2：调整购电量（2月以后）
+        # -----------------------------
+
         if day["date"].month >= 2:
 
             ws_adjust.cell(row=adjust_row, column=1).value = day["date"].date()
@@ -129,7 +172,10 @@ def main():
 
             adjust_row += 1
 
-        # -------- 充放电量（仅代表日） --------
+        # -----------------------------
+        # Sheet3：充放电量（仅代表日）
+        # -----------------------------
+
         if current_date in representative_dates:
 
             charge_energy = result["charge"] * dt
@@ -157,7 +203,10 @@ def main():
                     discharge_energy[s:e].sum()
                 )
 
-        # -------- 紧急购电量（仅代表日） --------
+        # -----------------------------
+        # Sheet4：紧急购电量（仅代表日）
+        # -----------------------------
+
         if current_date in representative_dates:
 
             ws_emergency.cell(row=emergency_row, column=1).value = day["date"].date()
@@ -169,7 +218,10 @@ def main():
 
             emergency_row += 1
 
-        # -------- 典型日图 --------
+        # -----------------------------
+        # Representative-day figures
+        # -----------------------------
+
         if current_date in representative_names:
 
             representative_results[representative_names[current_date]] = {
@@ -185,6 +237,10 @@ def main():
 
     wb.save(OUTPUT_PATH)
 
+    # -----------------------------
+    # Figures
+    # -----------------------------
+
     for season, data in representative_results.items():
 
         plot_representative_day(
@@ -196,6 +252,14 @@ def main():
             discharge=data["discharge"],
             save_path=FIGURE_FOLDER / f"图4-3_{season}滚动优化图.png",
         )
+
+    plot_cost_comparison(
+        16979978,                # 问题二全年费用
+        30243664.74,             # 问题三全年费用（你的结果）
+        14235646.35,             # 问题四(2)全年费用
+        total_cost,              # 问题四(3)全年费用
+        FIGURE_FOLDER / "图4-4_四种策略全年成本比较.png",
+    )
 
     print("\n" + "=" * 60)
     print("问题四(3)完成！")

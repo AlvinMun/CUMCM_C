@@ -81,19 +81,17 @@ def main():
 
         current_soc = result["end_energy"]
 
-        planned_purchase_all.append(result["planned_purchase"].copy() * dt)
-        emergency_purchase_all.append(result["emergency_purchase"].copy() * dt)
-        charge_all.append(result["charge"].copy() * dt)
-        discharge_all.append(result["discharge"].copy() * dt)
-        curtailment_all.append(result["curtailment"].copy() * dt)
-        storage_all.append(result["storage"].copy())
+        planned_purchase_all.append(result["planned_purchase"] * dt)
+        emergency_purchase_all.append(result["emergency_purchase"] * dt)
+        charge_all.append(result["charge"] * dt)
+        discharge_all.append(result["discharge"] * dt)
+        storage_all.append(result["storage"])
+        curtailment_all.append(result["curtailment"] * dt)
 
         current_date = str(day["date"].date())
 
         for season, target in representative_days.items():
-
             if current_date == target:
-
                 representative_results[season] = {
                     "load": day["load"],
                     "pv": day["pv"],
@@ -119,10 +117,12 @@ def main():
     summary_df = pd.DataFrame(daily_summary)
 
     # --------------------------------------------------
-    # Official template starts from 2025-02-01
+    # Export starts from Feb 1
     # --------------------------------------------------
 
-    start_idx = summary_df[summary_df["日期"].astype(str) == "2025-02-01"].index[0]
+    start_idx = summary_df[
+        summary_df["日期"].astype(str) == "2025-02-01"
+    ].index[0]
 
     summary_export = summary_df.iloc[start_idx:].reset_index(drop=True)
 
@@ -131,7 +131,6 @@ def main():
     charge_export = charge_all[start_idx:]
     discharge_export = discharge_all[start_idx:]
     storage_export = storage_all[start_idx:]
-    curtailment_export = curtailment_all[start_idx:]
 
     # --------------------------------------------------
     # Sheet 1
@@ -236,25 +235,7 @@ def main():
     emergency_df = pd.DataFrame(emergency_rows)
 
     # --------------------------------------------------
-    # Extra analysis files
-    # --------------------------------------------------
-
-    storage_labels = ["00:00"] + time_labels
-
-    storage_df = pd.DataFrame(
-        storage_export,
-        columns=storage_labels,
-    )
-    storage_df.insert(0, "日期", summary_export["日期"])
-
-    curtailment_df = pd.DataFrame(
-        curtailment_export,
-        columns=time_labels,
-    )
-    curtailment_df.insert(0, "日期", summary_export["日期"])
-
-    # --------------------------------------------------
-    # Export official result2.xlsx
+    # Export ONLY result2.xlsx
     # --------------------------------------------------
 
     with pd.ExcelWriter(
@@ -280,20 +261,8 @@ def main():
             index=False,
         )
 
-    # Extra files (not required)
-
-    storage_df.to_excel(
-        RESULTS_FOLDER / "问题二储能SOC.xlsx",
-        index=False,
-    )
-
-    curtailment_df.to_excel(
-        RESULTS_FOLDER / "问题二弃光量.xlsx",
-        index=False,
-    )
-
     # --------------------------------------------------
-    # Figures
+    # Representative-day figures
     # --------------------------------------------------
 
     for season, data in representative_results.items():
@@ -308,11 +277,15 @@ def main():
             save_path=FIGURE_FOLDER / f"图2-1_{season}典型日优化调度图.png",
         )
 
-    # Create storage dataframe for plotting (日期 must be the first column)
+    # --------------------------------------------------
+    # Annual figures
+    # --------------------------------------------------
+
     plot_storage_df = pd.DataFrame(
         storage_all,
-        columns=storage_labels,
+        columns=["00:00"] + time_labels,
     )
+
     plot_storage_df.insert(0, "日期", summary_df["日期"])
 
     plot_annual_statistics(
@@ -320,6 +293,10 @@ def main():
         plot_storage_df,
         FIGURE_FOLDER,
     )
+
+    # --------------------------------------------------
+    # Summary
+    # --------------------------------------------------
 
     print("\n" + "=" * 60)
     print("全年优化完成！")

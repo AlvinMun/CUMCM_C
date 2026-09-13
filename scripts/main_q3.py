@@ -8,6 +8,11 @@ from utils.q2_plotting import (
     plot_representative_day,
     plot_annual_statistics,
 )
+from utils.q3_plotting import (
+    plot_forecast_updates,
+    plot_monthly_adjustment,
+    plot_plan_vs_adjust,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -30,7 +35,6 @@ def main():
 
     attachment2 = loader.load_attachment2()
     forecast_data = loader.load_attachment3()
-
     year_data = loader.split_into_days(attachment2)
 
     price = loader.load_attachment1()["电价"].to_numpy()
@@ -63,7 +67,19 @@ def main():
     charge_all = []
     discharge_all = []
     storage_all = []
+
     emergency_events = []
+
+    daily_adjust_costs = []
+    daily_dates = []
+
+    sample_day = None
+    sample_forecast = None
+    sample_result = None
+
+    # --------------------------------------------------
+    # Rolling optimization
+    # --------------------------------------------------
 
     for i in range(len(year_data)):
 
@@ -86,6 +102,9 @@ def main():
         charge_all.append(result["charge"] * dt)
         discharge_all.append(result["discharge"] * dt)
         storage_all.append(result["storage"])
+
+        daily_adjust_costs.append(result["adjustment_cost"])
+        daily_dates.append(day["date"])
 
         date = day["date"].date()
 
@@ -117,6 +136,11 @@ def main():
 
         current_date = str(date)
 
+        if current_date == "2025-03-20":
+            sample_day = day
+            sample_forecast = forecast["forecast"]
+            sample_result = result
+
         if current_date in representative_days.values():
 
             season = [
@@ -137,9 +161,13 @@ def main():
 
     summary_df = pd.DataFrame(summary)
 
-    # Export only Feb-Dec
+    # --------------------------------------------------
+    # Export (official template starts Feb 1)
+    # --------------------------------------------------
 
-    start = summary_df[summary_df["日期"].astype(str) == "2025-02-01"].index[0]
+    start = summary_df[
+        summary_df["日期"].astype(str) == "2025-02-01"
+    ].index[0]
 
     summary_export = summary_df.iloc[start:].reset_index(drop=True)
 
@@ -158,7 +186,6 @@ def main():
 
     plan_df = pd.DataFrame(plan_export, columns=time_labels)
     plan_df.insert(0, "日期", summary_export["日期"])
-
     plan_df["全天购电量"] = plan_df.iloc[:, 1:].sum(axis=1)
     plan_df["全天购电费"] = summary_export["计划购电费"]
 
@@ -166,7 +193,6 @@ def main():
 
     adjust_df = pd.DataFrame(adjusted_export, columns=time_labels)
     adjust_df.insert(0, "日期", summary_export["日期"])
-
     adjust_df["全天购电量"] = adjust_df.iloc[:, 1:].sum(axis=1)
     adjust_df["全天购电费"] = summary_export["总费用"]
 
@@ -219,38 +245,19 @@ def main():
 
     emergency_df = pd.DataFrame(emergency_events)
 
-    # Official result3.xlsx
-
     with pd.ExcelWriter(
         RESULTS_FOLDER / "result3.xlsx",
         engine="openpyxl",
     ) as writer:
 
-        plan_df.to_excel(
-            writer,
-            sheet_name="计划购电量",
-            index=False,
-        )
+        plan_df.to_excel(writer, sheet_name="计划购电量", index=False)
+        adjust_df.to_excel(writer, sheet_name="调整购电量", index=False)
+        charge_df.to_excel(writer, sheet_name="充放电量", index=False)
+        emergency_df.to_excel(writer, sheet_name="紧急购电量", index=False)
 
-        adjust_df.to_excel(
-            writer,
-            sheet_name="调整购电量",
-            index=False,
-        )
-
-        charge_df.to_excel(
-            writer,
-            sheet_name="充放电量",
-            index=False,
-        )
-
-        emergency_df.to_excel(
-            writer,
-            sheet_name="紧急购电量",
-            index=False,
-        )
-
+    # --------------------------------------------------
     # Figures
+    # --------------------------------------------------
 
     storage_labels = ["00:00"] + time_labels
 
@@ -269,17 +276,37 @@ def main():
             data["grid"],
             data["charge"],
             data["discharge"],
-            FIGURE_FOLDER / f"图3-1_{season}滚动优化.png",
+            FIGURE_FOLDER / f"图3-4_{season}滚动优化.png",
         )
 
-    # Prepare summary dataframe for plotting (compatible with q2_plotting.py)
+    # 图3-1
+    if sample_day is not None:
+
+        plot_forecast_updates(
+            actual_pv=sample_day["pv"],
+            forecasts=sample_forecast,
+            save_path=FIGURE_FOLDER / "图3-1_滚动预测更新示意图.png",
+        )
+
+        plot_plan_vs_adjust(
+            planned=sample_result["planned_purchase"],
+            adjusted=sample_result["adjusted_purchase"],
+            save_path=FIGURE_FOLDER / "图3-3_计划购电与调整购电对比.png",
+        )
+
+    # 图3-2
+    plot_monthly_adjustment(
+        daily_adjust_costs,
+        daily_dates,
+        FIGURE_FOLDER / "图3-2_月度调整费用分布.png",
+    )
+
+    # Annual statistics
     plot_summary = summary_df.rename(columns={
         "总费用": "购电成本(元)",
         "日终SOC": "日终SOC(kWh)",
     }).copy()
 
-    # Q3 doesn't currently export daily curtailment,
-    # but q2_plotting requires this column.
     plot_summary["弃光量(kWh)"] = 0.0
 
     plot_annual_statistics(

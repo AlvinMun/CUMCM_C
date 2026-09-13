@@ -1,4 +1,3 @@
-
 import numpy as np
 from scipy.optimize import linprog
 
@@ -7,24 +6,16 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     """
     Optimize one day (144 time steps).
 
-    Parameters
-    ----------
-    price : ndarray(144,)
-    load_kw : ndarray(144,)
-    pv_kw : ndarray(144,)
-    battery : Battery
-    initial_energy : float
-
-    Returns
-    -------
-    dict
+    Variables:
+        G : planned grid purchase (kW)
+        C : charging power (kW)
+        D : discharging power (kW)
+        P : curtailed PV (kW)
+        S : battery energy (kWh)
     """
 
     n = len(price)
-    dt = 1 / 6  # 10 minutes = 1/6 hour
-
-    # Variable order
-    # [Grid | Charge | Discharge | Curtail | SOC]
+    dt = 1 / 6
 
     G0 = 0
     C0 = G0 + n
@@ -34,17 +25,17 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
 
     total_vars = S0 + n + 1
 
+    # -----------------------------
     # Objective
+    # -----------------------------
 
     c = np.zeros(total_vars)
+    c[G0:G0+n] = price * dt
+    c[P0:P0+n] = 1e-6
 
-    # Purchase cost
-    c[G0:G0 + n] = price * dt
-
-    # Tiny penalty for curtailment
-    c[P0:P0 + n] = 1e-6
-
+    # -----------------------------
     # Equality constraints
+    # -----------------------------
 
     Aeq = []
     beq = []
@@ -53,47 +44,51 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     eta_d = battery.discharge_efficiency
 
     # Power balance
-
     for t in range(n):
-
         row = np.zeros(total_vars)
-
-        row[G0 + t] = 1
-        row[D0 + t] = 1
-        row[C0 + t] = -1
-        row[P0 + t] = -1
+        row[G0+t] = 1
+        row[D0+t] = 1
+        row[C0+t] = -1
+        row[P0+t] = -1
 
         Aeq.append(row)
         beq.append(load_kw[t] - pv_kw[t])
 
     # SOC dynamics
-
     for t in range(n):
-
         row = np.zeros(total_vars)
 
-        row[S0 + t] = -1
-        row[S0 + t + 1] = 1
+        row[S0+t] = -1
+        row[S0+t+1] = 1
 
-        row[C0 + t] = -eta_c * dt
-        row[D0 + t] = dt / eta_d
+        row[C0+t] = -eta_c * dt
+        row[D0+t] = dt / eta_d
 
         Aeq.append(row)
         beq.append(0)
 
-    # Initial SOC ONLY
+    # Initial SOC
 
     row = np.zeros(total_vars)
     row[S0] = 1
-
     Aeq.append(row)
     beq.append(initial_energy)
+
+    # Final SOC must equal initial SOC
+
+    row = np.zeros(total_vars)
+    row[S0 + n] = 1
+    Aeq.append(row)
+    beq.append(initial_energy)
+
+    # Convert to NumPy arrays
 
     Aeq = np.array(Aeq)
     beq = np.array(beq)
 
+    # -----------------------------
     # Inequality constraints
-    # Prevent simultaneous charging/discharging
+    # -----------------------------
 
     Aub = []
     bub = []
@@ -104,40 +99,34 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     )
 
     for t in range(n):
-
         row = np.zeros(total_vars)
-
-        row[C0 + t] = 1
-        row[D0 + t] = 1
-
+        row[C0+t] = 1
+        row[D0+t] = 1
         Aub.append(row)
         bub.append(M)
 
     Aub = np.array(Aub)
     bub = np.array(bub)
 
-    # Bounds
+    # -----------------------------
+    # Bounds (OFFICIAL BATTERY LIMITS)
+    # -----------------------------
 
     bounds = []
 
-    # Grid
     bounds.extend([(0, None)] * n)
-
-    # Charge
     bounds.extend([(0, battery.max_charge_power)] * n)
-
-    # Discharge
     bounds.extend([(0, battery.max_discharge_power)] * n)
-
-    # Curtailment
     bounds.extend([(0, None)] * n)
 
-    # SOC
-    soc_min = 0.10 * battery.capacity
+    soc_min = 0.10 * battery.capacity   # 1200
+    soc_max = 0.90 * battery.capacity   # 10800
 
-    bounds.extend([(soc_min, battery.capacity)] * (n + 1))
+    bounds.extend([(soc_min, soc_max)] * (n + 1))
 
+    # -----------------------------
     # Solve
+    # -----------------------------
 
     result = linprog(
         c,
@@ -150,43 +139,33 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     )
 
     if not result.success:
-        raise RuntimeError(
-            f"Optimization failed: {result.message}"
-        )
+        raise RuntimeError(f"Optimization failed: {result.message}")
 
     x = result.x
 
-    grid = x[G0:G0 + n]
-    charge = x[C0:C0 + n]
-    discharge = x[D0:D0 + n]
-    curtail = x[P0:P0 + n]
-    soc = x[S0:S0 + n + 1]
+    grid = x[G0:G0+n]
+    charge = x[C0:C0+n]
+    discharge = x[D0:D0+n]
+    curtail = x[P0:P0+n]
+    soc = x[S0:S0+n+1]
 
     total_cost = np.sum(grid * price * dt)
 
-    # No emergency purchase in current model
     emergency_purchase = np.zeros(n)
 
     return {
-
         "planned_purchase": grid,
         "grid_purchase": grid,
         "emergency_purchase": emergency_purchase,
-
         "charge": charge,
         "discharge": discharge,
-
         "storage": soc,
         "battery_energy": soc,
-
         "curtailment": curtail,
-
         "normal_cost": total_cost,
         "emergency_cost": 0.0,
         "total_cost": total_cost,
-
         "end_energy": soc[-1],
-
         "status": result.status,
         "message": result.message,
     }

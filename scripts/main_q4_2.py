@@ -1,5 +1,7 @@
 from pathlib import Path
 from openpyxl import load_workbook
+import matplotlib.pyplot as plt
+import numpy as np
 
 from optimization.q4_optimizer import optimize_day
 from utils.battery import Battery
@@ -16,6 +18,37 @@ FIGURE_FOLDER.mkdir(exist_ok=True)
 
 TEMPLATE_PATH = DATA_FOLDER / "result4-2.xlsx"
 OUTPUT_PATH = RESULTS_FOLDER / "result4-2.xlsx"
+
+
+# --------------------------------------------------
+# 新增：全年电价曲线
+# --------------------------------------------------
+
+plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
+plt.rcParams["axes.unicode_minus"] = False
+
+
+def plot_q4_price(price_data, save_path):
+    """绘制全年波动电价曲线"""
+
+    if isinstance(price_data, list):
+        price = np.concatenate([d["price"] for d in price_data])
+    else:
+        price = np.asarray(price_data).flatten()
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(price, linewidth=0.4)
+    plt.xlabel("全年10分钟时段")
+    plt.ylabel("电价(元/kWh)")
+    plt.title("图4-1 全年波动电价变化")
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+
+
+# --------------------------------------------------
+# Main
+# --------------------------------------------------
 
 
 def main():
@@ -93,7 +126,10 @@ def main():
 
         current_date = str(day["date"].date())
 
-        # -------- 计划购电量（2月以后） --------
+        # -----------------------------
+        # Sheet1：计划购电量（2月以后）
+        # -----------------------------
+
         if day["date"].month >= 2:
 
             ws_plan.cell(row=plan_row, column=1).value = day["date"].date()
@@ -105,7 +141,10 @@ def main():
 
             plan_row += 1
 
-        # -------- 充放电量（仅代表日） --------
+        # -----------------------------
+        # Sheet2：充放电量（仅代表日）
+        # -----------------------------
+
         if current_date in representative_dates:
 
             charge_energy = result["charge"] * dt
@@ -133,7 +172,10 @@ def main():
                     discharge_energy[s:e].sum()
                 )
 
-        # -------- 紧急购电量（仅代表日） --------
+        # -----------------------------
+        # Sheet3：紧急购电量（仅代表日）
+        # -----------------------------
+
         if current_date in representative_dates:
 
             ws_emergency.cell(row=emergency_row, column=1).value = day["date"].date()
@@ -145,7 +187,10 @@ def main():
 
             emergency_row += 1
 
-        # -------- 典型日图 --------
+        # -----------------------------
+        # Representative-day figures
+        # -----------------------------
+
         if current_date in representative_names:
 
             representative_results[representative_names[current_date]] = {
@@ -161,6 +206,10 @@ def main():
 
     wb.save(OUTPUT_PATH)
 
+    # -----------------------------
+    # Figures
+    # -----------------------------
+
     for season, data in representative_results.items():
 
         plot_representative_day(
@@ -172,6 +221,11 @@ def main():
             discharge=data["discharge"],
             save_path=FIGURE_FOLDER / f"图4-2_{season}典型日优化调度图.png",
         )
+
+    plot_q4_price(
+        price_data,
+        FIGURE_FOLDER / "图4-1_全年波动电价.png",
+    )
 
     print("\n" + "=" * 60)
     print("问题四(2)完成！")

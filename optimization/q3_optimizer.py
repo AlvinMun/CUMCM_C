@@ -2,7 +2,6 @@ import numpy as np
 
 from optimization.q2_optimizer import optimize_day
 
-
 DT = 1 / 6
 
 
@@ -17,20 +16,22 @@ def optimize_day_q3(
     """
     Question 3 rolling optimization.
 
-    Rolling updates:
-        0:00
+    Rolling update times:
+        0:00 (initial plan)
         6:00
         12:00
         18:00
 
     Returns:
-        initial plan
-        final adjusted plan
+        initial planned purchase
+        adjusted purchase
         adjustment cost
         battery trajectories
     """
 
-    # Initial plan (0:00 forecast)
+    # --------------------------------------------------
+    # Initial optimization (0:00 forecast)
+    # --------------------------------------------------
 
     plan = optimize_day(
         price=price,
@@ -58,6 +59,10 @@ def optimize_day_q3(
         ("18:00", 108),
     ]
 
+    # --------------------------------------------------
+    # Rolling optimization
+    # --------------------------------------------------
+
     for release, start in updates:
 
         current_soc = storage[start]
@@ -72,23 +77,34 @@ def optimize_day_q3(
 
         new_purchase = remain["planned_purchase"]
 
+        # Difference from previous plan
         diff = new_purchase - final_purchase[start:]
 
         increase = np.maximum(diff, 0)
         decrease = np.maximum(-diff, 0)
 
+        # --------------------------------------------------
+        # FIXED adjustment cost
+        # Electricity itself is already counted in normal_cost.
+        # Only charge the additional adjustment penalty.
+        # --------------------------------------------------
+
         adjustment_cost += (
-            (1.5 * price[start:] * increase * DT).sum()
+            (0.5 * price[start:] * increase * DT).sum()
             + (0.5 * price[start:] * decrease * DT).sum()
         )
 
+        # Update future schedule
         final_purchase[start:] = new_purchase
         charge[start:] = remain["charge"]
         discharge[start:] = remain["discharge"]
         emergency[start:] = remain["emergency_purchase"]
         curtailment[start:] = remain["curtailment"]
-
         storage[start:] = remain["storage"]
+
+    # --------------------------------------------------
+    # Cost calculation
+    # --------------------------------------------------
 
     normal_cost = (price * final_purchase * DT).sum()
 
