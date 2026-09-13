@@ -1,56 +1,57 @@
-# CUMCM 2026 – Problem C: Microgrid Electricity Purchase Optimization with Energy Storage
+# CUMCM 2026 国赛 C题——微网购电与储能优化调度
 
-A complete Python implementation of **CUMCM 2026 National Mathematical Modeling Competition – Problem C**, covering deterministic scheduling, annual optimization, rolling forecast adjustment, and real-time electricity price optimization for a photovoltaic microgrid with battery storage.
+基于 **Python + SciPy 线性规划（HiGHS）** 实现的 **2026 年全国大学生数学建模竞赛（CUMCM）C题** 完整求解项目，实现了微网在光伏发电、储能系统及分时/实时电价条件下的购电优化、滚动预测调度以及全年运行分析。
 
-## Project Overview
-
-This project studies optimal electricity purchasing strategies for a microgrid equipped with:
-
-* Residential load demand
-* Photovoltaic (PV) generation
-* Battery energy storage system (BESS)
-* Time-of-use and real-time electricity pricing
-
-The objective is to minimize electricity purchasing costs while satisfying load demand, battery operating constraints, and forecast updates.
-
-The implementation reproduces the optimization framework required by the competition and automatically generates Excel result files and publication-ready figures.
+本项目按照题目要求完成了 **问题一、问题二、问题三、问题四（2）（3）** 的建模、算法实现、结果导出以及论文绘图。
 
 ---
 
-## Project Structure
+## 项目简介
+
+研究对象为包含以下组成部分的居民微网：
+
+* 小区负载（Load）
+* 光伏发电（PV）
+* 储能系统（Battery Energy Storage System）
+* 外部电网
+* 分时电价与实时电价
+
+优化目标是在满足供需平衡和储能运行约束的前提下，使购电成本最低，并分析滚动预测和实时电价对调度策略的影响。
+
+---
+
+
+## 项目结构
 
 ```text
 CUMCM_C/
 │
-├── data/
+├── data/                 # 官方附件数据及导出结果
 │   ├── 附件1.xlsx
 │   ├── 附件2.xlsx
 │   ├── 附件3.xlsx
 │   ├── 附件4.xlsx
-│   └── generated result files
+│   └── result*.xlsx
 │
-├── optimization/
+├── optimization/         # 各问题优化算法
 │   ├── q1_optimizer.py
 │   ├── q2_optimizer.py
 │   ├── q3_optimizer.py
 │   ├── q4_optimizer.py
 │   └── q4_rolling_optimizer.py
 │
-├── utils/
-│   ├── data_loader.py
+├── utils/                # 数据读取、绘图及工具函数
 │   ├── battery.py
+│   ├── data_loader.py
 │   ├── q1_plotting.py
 │   ├── q2_plotting.py
 │   ├── q3_plotting.py
 │   └── plots.py
 │
-├── figures/
-│   └── generated figures
+├── figures/              # 自动生成论文图表
+├── results/              # Excel结果输出
 │
-├── results/
-│   └── exported Excel results
-│
-├── paper/
+├── paper/                # LaTeX论文
 │   ├── main.tex
 │   ├── references.bib
 │   └── sections/
@@ -65,170 +66,171 @@ CUMCM_C/
 
 ---
 
-## Mathematical Models
+## 数学模型
 
-### Problem 1
+### 问题一：固定场景购电优化
 
-* Linear Programming (SciPy HiGHS)
-* Battery SOC constraints
-* Charging/discharging efficiency
-* Minimum daily electricity purchase cost
+采用线性规划建立单日购电优化模型，综合考虑：
 
-### Problem 2
+* 分时电价
+* 光伏预测功率
+* 储能SOC约束
+* 充放电效率
+* 功率约束
+* 首尾SOC一致
 
-* Annual day-by-day optimization
-* Continuous battery state transfer
-* PV curtailment handling
-* Emergency purchase framework
+目标函数：
 
-### Problem 3
-
-* Rolling forecast optimization
-* Four forecast updates (00:00, 06:00, 12:00, 18:00)
-* Plan adjustment cost
-* Dynamic battery scheduling
-
-### Problem 4
-
-* Real-time electricity price optimization
-* Dynamic electricity pricing
-* Annual optimization
-* Rolling optimization with price fluctuations
+<math block value="\\min \\sum_{t=1}^{144} c_t G_t"/>
 
 ---
 
-## Battery Configuration
+### 问题二：全年储能优化
 
-| Parameter               |     Value |
-| ----------------------- | --------: |
-| Capacity                | 12000 kWh |
-| Initial SOC             |  6000 kWh |
-| Maximum Charge Power    |   5000 kW |
-| Maximum Discharge Power |   5000 kW |
-| Charge Efficiency       |       90% |
-| Discharge Efficiency    |       90% |
-| Minimum SOC             |  1200 kWh |
+在全年365天数据基础上进行逐日优化，考虑：
 
----
+* 电池SOC跨日传递
+* 光伏弃电统计
+* 全年购电成本累计
+* 储能连续运行
 
-## Main Results
-
-### Problem 1
-
-| Metric         |           Result |
-| -------------- | ---------------: |
-| Daily Cost     |   **35126.95 元** |
-| Daily Purchase | **59482.70 kWh** |
-| Final SOC      |     **6000 kWh** |
-
-### Problem 2
-
-| Metric           |           Result |
-| ---------------- | ---------------: |
-| Annual Cost      | **13,768,401 元** |
-| Planned Purchase |    **22.69 GWh** |
-| PV Curtailment   |      **733 MWh** |
-
-### Problem 3
-
-| Metric          |             Result |
-| --------------- | -----------------: |
-| Annual Cost     |   **23,574,822 元** |
-| Adjustment Cost | **8.13 million 元** |
-
-### Problem 4-2
-
-| Metric      |           Result |
-| ----------- | ---------------: |
-| Annual Cost | **14,235,646 元** |
-
-### Problem 4-3
-
-| Metric          |             Result |
-| --------------- | -----------------: |
-| Annual Cost     |   **24,539,300 元** |
-| Adjustment Cost | **8.30 million 元** |
+采用 SciPy HiGHS 求解线性规划。
 
 ---
 
-## Example Figures
+### 问题三：滚动预测优化
 
-The project automatically generates figures such as:
+模拟每天四次光伏预测更新（00:00、06:00、12:00、18:00），实现：
 
-* Battery SOC curves
-* Typical seasonal dispatch
-* Annual electricity purchase statistics
-* Rolling forecast updates
-* Monthly adjustment distributions
-* Cost comparison charts
+* 初始购电计划
+* 动态调整购电
+* 调整成本统计
+* 滚动储能调度
 
-Example outputs:
-
-* `图1_电池荷电状态变化曲线.png`
-* `图2-5a_全年每日购电成本.png`
-* `图3-2_月度调整费用分布.png`
-* `图4-4_四种策略全年成本比较.png`
+体现滚动优化策略对经济性的影响。
 
 ---
 
-## Installation
+### 问题四：波动电价优化
 
-Clone the repository:
+进一步引入实时电价，分别实现：
 
-```bash
-git clone https://github.com/yourusername/CUMCM_C.git
-cd CUMCM_C
+* 全年实时电价优化
+* 滚动实时电价优化
+* 成本对比分析
+
+展示电价波动对储能调度策略的影响。
+
+---
+
+## 储能系统参数
+
+| 参数     |        数值 |
+| ------ | --------: |
+| 储能容量   | 12000 kWh |
+| 初始SOC  |  6000 kWh |
+| 最大充电功率 |   5000 kW |
+| 最大放电功率 |   5000 kW |
+| 充电效率   |       90% |
+| 放电效率   |       90% |
+| 最低SOC  |  1200 kWh |
+
+---
+
+## 主要结果
+
+### 问题一
+
+| 指标     |               结果 |
+| ------ | ---------------: |
+| 全天购电成本 |   **35126.95 元** |
+| 全天购电量  | **59482.70 kWh** |
+| 初始SOC  |     **6000 kWh** |
+| 末端SOC  |     **6000 kWh** |
+
+---
+
+### 问题二
+
+| 指标      |               结果 |
+| ------- | ---------------: |
+| 全年购电成本  | **13,768,401 元** |
+| 全年计划购电量 |    **22.69 GWh** |
+| 光伏弃电量   |      **733 MWh** |
+
+---
+
+### 问题三
+
+| 指标    |               结果 |
+| ----- | ---------------: |
+| 全年总费用 | **23,574,822 元** |
+| 调整费用  |     **8.13 百万元** |
+
+---
+
+### 问题四（2）
+
+| 指标    |               结果 |
+| ----- | ---------------: |
+| 全年总费用 | **14,235,646 元** |
+
+---
+
+### 问题四（3）
+
+| 指标    |               结果 |
+| ----- | ---------------: |
+| 全年总费用 | **24,539,300 元** |
+| 调整费用  |     **8.30 百万元** |
+
+---
+
+## 自动生成结果
+
+程序运行后会自动生成：
+
+### Excel结果
+
+* `result1.xlsx`
+* `result2.xlsx`
+* `result3.xlsx`
+* `result4-2.xlsx`
+* `result4-3.xlsx`
+
+### 图表
+
+自动生成论文所需图表，例如：
+
+* 电池SOC变化曲线
+* 四季典型调度图
+* 全年购电成本统计
+* 滚动预测更新分析
+* 月度调整费用分布
+* 四种策略成本对比
+
+所有图片保存在 `figures/` 文件夹中。
+
+---
+
+## 环境配置
+
+### Python版本
+
+推荐：
+
+```text
+Python 3.11+
 ```
 
-Install dependencies:
+### 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+主要依赖：
 
-## Usage
-
-Run each problem independently.
-
-### Problem 1
-
-```bash
-python main_q1.py
-```
-
-### Problem 2
-
-```bash
-python main_q2.py
-```
-
-### Problem 3
-
-```bash
-python main_q3.py
-```
-
-### Problem 4-2
-
-```bash
-python main_q4_2.py
-```
-
-### Problem 4-3
-
-```bash
-python main_q4_3.py
-```
-
-Generated outputs will be saved automatically.
-
----
-
-## Dependencies
-
-* Python 3.11+
 * NumPy
 * Pandas
 * SciPy
@@ -237,20 +239,70 @@ Generated outputs will be saved automatically.
 
 ---
 
-## Technical Highlights
+## 使用方法
 
-* Linear Programming with SciPy HiGHS
-* Rolling horizon optimization
-* Battery state-of-charge modeling
-* PV forecast integration
-* Automatic Excel report generation
-* Publication-ready figure generation
-* Modular project architecture
+分别运行各题程序：
+
+### 问题一
+
+```bash
+python main_q1.py
+```
+
+### 问题二
+
+```bash
+python main_q2.py
+```
+
+### 问题三
+
+```bash
+python main_q3.py
+```
+
+### 问题四（2）
+
+```bash
+python main_q4_2.py
+```
+
+### 问题四（3）
+
+```bash
+python main_q4_3.py
+```
+
+运行完成后会自动生成对应的 Excel 文件和图表。
 
 ---
 
-## Notes
+## 技术特点
 
-This repository is an independent implementation based on the official CUMCM Problem C dataset and requirements.
+* 基于 SciPy HiGHS 的线性规划优化
+* 滚动预测优化框架
+* 储能SOC连续建模
+* 光伏预测与实际数据结合
+* 自动生成论文图表
+* Excel结果自动导出
+* 模块化代码结构，便于复现与扩展
 
-The optimization models were implemented using Python and reproduce the scheduling framework described in the competition problem statement while generating reproducible numerical results and visualizations.
+---
+
+## 论文支持
+
+项目包含完整 LaTeX 论文结构：
+
+* `paper/main.tex`
+* `paper/sections/`
+* `paper/references.bib`
+
+可直接编译生成论文，并与程序输出的图表保持一致。
+
+---
+
+## 说明
+
+本项目为 **2026 全国大学生数学建模竞赛 C题** 的独立 Python 实现。
+
+所有模型均依据题目提供的数据和约束条件构建，实现了购电优化、储能调度、滚动预测和实时电价优化等核心功能，并能够复现论文中的主要计算结果和可视化分析。
