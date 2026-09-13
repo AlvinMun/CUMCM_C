@@ -25,17 +25,10 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
 
     total_vars = S0 + n + 1
 
-    # -----------------------------
-    # Objective
-    # -----------------------------
 
     c = np.zeros(total_vars)
     c[G0:G0+n] = price * dt
     c[P0:P0+n] = 1e-6
-
-    # -----------------------------
-    # Equality constraints
-    # -----------------------------
 
     Aeq = []
     beq = []
@@ -86,9 +79,6 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     Aeq = np.array(Aeq)
     beq = np.array(beq)
 
-    # -----------------------------
-    # Inequality constraints
-    # -----------------------------
 
     Aub = []
     bub = []
@@ -108,9 +98,6 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     Aub = np.array(Aub)
     bub = np.array(bub)
 
-    # -----------------------------
-    # Bounds (OFFICIAL BATTERY LIMITS)
-    # -----------------------------
 
     bounds = []
 
@@ -124,9 +111,6 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
 
     bounds.extend([(soc_min, soc_max)] * (n + 1))
 
-    # -----------------------------
-    # Solve
-    # -----------------------------
 
     result = linprog(
         c,

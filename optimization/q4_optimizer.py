@@ -23,8 +23,6 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     n = len(price)
     dt = 1 / 6  # 10 minutes = 1/6 hour
 
-    # Variable order
-    # [Grid | Charge | Discharge | Curtail | SOC]
 
     G0 = 0
     C0 = G0 + n
@@ -92,8 +90,6 @@ def optimize_day(price, load_kw, pv_kw, battery, initial_energy):
     Aeq = np.array(Aeq)
     beq = np.array(beq)
 
-    # Inequality constraints
-    # Prevent simultaneous charging/discharging
 
     Aub = []
     bub = []

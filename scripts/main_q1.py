@@ -46,17 +46,11 @@ def main():
 
     result = optimize_day(price, load, pv, battery)
 
-    # -----------------------------
-    # Generate SOC figure
-    # -----------------------------
     plot_battery_soc(
         result["battery_energy"],
         FIGURE_FOLDER / "图1_电池荷电状态变化曲线.png",
     )
 
-    # -----------------------------
-    # Export official Excel template
-    # -----------------------------
     wb = load_workbook(TEMPLATE_PATH)
 
     ws_purchase = wb[wb.sheetnames[0]]

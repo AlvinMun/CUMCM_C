@@ -20,9 +20,6 @@ TEMPLATE_PATH = DATA_FOLDER / "result4-2.xlsx"
 OUTPUT_PATH = RESULTS_FOLDER / "result4-2.xlsx"
 
 
-# --------------------------------------------------
-# 新增：全年电价曲线
-# --------------------------------------------------
 
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
 plt.rcParams["axes.unicode_minus"] = False
@@ -46,9 +43,6 @@ def plot_q4_price(price_data, save_path):
     plt.close()
 
 
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
 
 
 def main():
@@ -126,9 +120,6 @@ def main():
 
         current_date = str(day["date"].date())
 
-        # -----------------------------
-        # Sheet1：计划购电量（2月以后）
-        # -----------------------------
 
         if day["date"].month >= 2:
 
@@ -141,9 +132,6 @@ def main():
 
             plan_row += 1
 
-        # -----------------------------
-        # Sheet2：充放电量（仅代表日）
-        # -----------------------------
 
         if current_date in representative_dates:
 
@@ -172,9 +160,6 @@ def main():
                     discharge_energy[s:e].sum()
                 )
 
-        # -----------------------------
-        # Sheet3：紧急购电量（仅代表日）
-        # -----------------------------
 
         if current_date in representative_dates:
 
@@ -187,9 +172,6 @@ def main():
 
             emergency_row += 1
 
-        # -----------------------------
-        # Representative-day figures
-        # -----------------------------
 
         if current_date in representative_names:
 
@@ -206,9 +188,6 @@ def main():
 
     wb.save(OUTPUT_PATH)
 
-    # -----------------------------
-    # Figures
-    # -----------------------------
 
     for season, data in representative_results.items():
 

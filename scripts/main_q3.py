@@ -77,9 +77,6 @@ def main():
     sample_forecast = None
     sample_result = None
 
-    # --------------------------------------------------
-    # Rolling optimization
-    # --------------------------------------------------
 
     for i in range(len(year_data)):
 
@@ -161,9 +158,6 @@ def main():
 
     summary_df = pd.DataFrame(summary)
 
-    # --------------------------------------------------
-    # Export (official template starts Feb 1)
-    # --------------------------------------------------
 
     start = summary_df[
         summary_df["日期"].astype(str) == "2025-02-01"
@@ -182,21 +176,17 @@ def main():
         for i in range(144)
     ]
 
-    # ---------- Sheet1 ----------
-
     plan_df = pd.DataFrame(plan_export, columns=time_labels)
     plan_df.insert(0, "日期", summary_export["日期"])
     plan_df["全天购电量"] = plan_df.iloc[:, 1:].sum(axis=1)
     plan_df["全天购电费"] = summary_export["计划购电费"]
 
-    # ---------- Sheet2 ----------
 
     adjust_df = pd.DataFrame(adjusted_export, columns=time_labels)
     adjust_df.insert(0, "日期", summary_export["日期"])
     adjust_df["全天购电量"] = adjust_df.iloc[:, 1:].sum(axis=1)
     adjust_df["全天购电费"] = summary_export["总费用"]
 
-    # ---------- Sheet3 ----------
 
     periods = [
         "0:00-4:00",
@@ -241,7 +231,6 @@ def main():
 
     charge_df = pd.DataFrame(charge_rows)
 
-    # ---------- Sheet4 ----------
 
     emergency_df = pd.DataFrame(emergency_events)
 
@@ -255,9 +244,6 @@ def main():
         charge_df.to_excel(writer, sheet_name="充放电量", index=False)
         emergency_df.to_excel(writer, sheet_name="紧急购电量", index=False)
 
-    # --------------------------------------------------
-    # Figures
-    # --------------------------------------------------
 
     storage_labels = ["00:00"] + time_labels
 
@@ -294,7 +280,6 @@ def main():
             save_path=FIGURE_FOLDER / "图3-3_计划购电与调整购电对比.png",
         )
 
-    # 图3-2
     plot_monthly_adjustment(
         daily_adjust_costs,
         daily_dates,

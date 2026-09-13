@@ -23,9 +23,6 @@ plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
 plt.rcParams["axes.unicode_minus"] = False
 
 
-# --------------------------------------------------
-# 新增：四种策略全年成本比较图
-# --------------------------------------------------
 
 def plot_cost_comparison(q2, q3, q42, q43, save_path):
 
@@ -51,9 +48,6 @@ def plot_cost_comparison(q2, q3, q42, q43, save_path):
     plt.close()
 
 
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
 
 def main():
 
@@ -142,9 +136,6 @@ def main():
 
         current_date = str(day["date"].date())
 
-        # -----------------------------
-        # Sheet1：计划购电量（2月以后）
-        # -----------------------------
 
         if day["date"].month >= 2:
 
@@ -157,9 +148,6 @@ def main():
 
             plan_row += 1
 
-        # -----------------------------
-        # Sheet2：调整购电量（2月以后）
-        # -----------------------------
 
         if day["date"].month >= 2:
 
@@ -172,9 +160,6 @@ def main():
 
             adjust_row += 1
 
-        # -----------------------------
-        # Sheet3：充放电量（仅代表日）
-        # -----------------------------
 
         if current_date in representative_dates:
 
@@ -203,9 +188,6 @@ def main():
                     discharge_energy[s:e].sum()
                 )
 
-        # -----------------------------
-        # Sheet4：紧急购电量（仅代表日）
-        # -----------------------------
 
         if current_date in representative_dates:
 
@@ -217,10 +199,6 @@ def main():
                 )
 
             emergency_row += 1
-
-        # -----------------------------
-        # Representative-day figures
-        # -----------------------------
 
         if current_date in representative_names:
 
@@ -237,9 +215,6 @@ def main():
 
     wb.save(OUTPUT_PATH)
 
-    # -----------------------------
-    # Figures
-    # -----------------------------
 
     for season, data in representative_results.items():
 
@@ -255,7 +230,7 @@ def main():
 
     plot_cost_comparison(
         16979978,                # 问题二全年费用
-        30243664.74,             # 问题三全年费用（你的结果）
+        30243664.74,             # 问题三全年费用
         14235646.35,             # 问题四(2)全年费用
         total_cost,              # 问题四(3)全年费用
         FIGURE_FOLDER / "图4-4_四种策略全年成本比较.png",

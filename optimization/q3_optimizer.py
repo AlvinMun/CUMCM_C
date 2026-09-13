@@ -29,9 +29,6 @@ def optimize_day_q3(
         battery trajectories
     """
 
-    # --------------------------------------------------
-    # Initial optimization (0:00 forecast)
-    # --------------------------------------------------
 
     plan = optimize_day(
         price=price,
@@ -59,9 +56,6 @@ def optimize_day_q3(
         ("18:00", 108),
     ]
 
-    # --------------------------------------------------
-    # Rolling optimization
-    # --------------------------------------------------
 
     for release, start in updates:
 
@@ -83,11 +77,6 @@ def optimize_day_q3(
         increase = np.maximum(diff, 0)
         decrease = np.maximum(-diff, 0)
 
-        # --------------------------------------------------
-        # FIXED adjustment cost
-        # Electricity itself is already counted in normal_cost.
-        # Only charge the additional adjustment penalty.
-        # --------------------------------------------------
 
         adjustment_cost += (
             (0.5 * price[start:] * increase * DT).sum()
@@ -102,9 +91,6 @@ def optimize_day_q3(
         curtailment[start:] = remain["curtailment"]
         storage[start:] = remain["storage"]
 
-    # --------------------------------------------------
-    # Cost calculation
-    # --------------------------------------------------
 
     normal_cost = (price * final_purchase * DT).sum()
 

@@ -65,9 +65,6 @@ def main():
     storage_all = []
     curtailment_all = []
 
-    # --------------------------------------------------
-    # Annual optimization
-    # --------------------------------------------------
 
     for i, day in enumerate(year_data):
 
@@ -116,9 +113,6 @@ def main():
 
     summary_df = pd.DataFrame(daily_summary)
 
-    # --------------------------------------------------
-    # Export starts from Feb 1
-    # --------------------------------------------------
 
     start_idx = summary_df[
         summary_df["日期"].astype(str) == "2025-02-01"
@@ -132,9 +126,6 @@ def main():
     discharge_export = discharge_all[start_idx:]
     storage_export = storage_all[start_idx:]
 
-    # --------------------------------------------------
-    # Sheet 1
-    # --------------------------------------------------
 
     time_labels = [
         f"{(10*(i+1))//60:02d}:{(10*(i+1))%60:02d}"
@@ -148,9 +139,6 @@ def main():
 
     planned_purchase_df.insert(0, "日期", summary_export["日期"])
 
-    # --------------------------------------------------
-    # Sheet 2
-    # --------------------------------------------------
 
     periods = [
         "0:00-4:00",
@@ -195,9 +183,6 @@ def main():
 
     charge_summary_df = pd.DataFrame(charge_summary)
 
-    # --------------------------------------------------
-    # Sheet 3
-    # --------------------------------------------------
 
     emergency_rows = []
 
@@ -234,9 +219,6 @@ def main():
 
     emergency_df = pd.DataFrame(emergency_rows)
 
-    # --------------------------------------------------
-    # Export ONLY result2.xlsx
-    # --------------------------------------------------
 
     with pd.ExcelWriter(
         RESULTS_FOLDER / "result2.xlsx",
@@ -261,9 +243,6 @@ def main():
             index=False,
         )
 
-    # --------------------------------------------------
-    # Representative-day figures
-    # --------------------------------------------------
 
     for season, data in representative_results.items():
 
@@ -277,9 +256,6 @@ def main():
             save_path=FIGURE_FOLDER / f"图2-1_{season}典型日优化调度图.png",
         )
 
-    # --------------------------------------------------
-    # Annual figures
-    # --------------------------------------------------
 
     plot_storage_df = pd.DataFrame(
         storage_all,
@@ -294,9 +270,6 @@ def main():
         FIGURE_FOLDER,
     )
 
-    # --------------------------------------------------
-    # Summary
-    # --------------------------------------------------
 
     print("\n" + "=" * 60)
     print("全年优化完成！")

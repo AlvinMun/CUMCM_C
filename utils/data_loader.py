@@ -56,8 +56,6 @@ class DataLoader:
             load_sheet.iloc[:, 0]
         )
 
-        # Only keep the 144 scheduling intervals
-        # Ignore the last "0:00+1" column.
 
         load = load_sheet.iloc[:, 1:145].astype(float)
         pv = pv_sheet.iloc[:, 1:145].astype(float)
@@ -111,7 +109,6 @@ class DataLoader:
 
                 hourly = row.iloc[2:26].to_numpy(dtype=float)
 
-                # Expand 24 hourly values → 144 ten-minute values
                 ten_min = np.repeat(hourly, 6)
 
                 forecasts[release] = ten_min
@@ -158,7 +155,6 @@ class DataLoader:
 
         return price_days
 
-    # Daily iterator
     def split_into_days(self, attachment2):
 
         days = []

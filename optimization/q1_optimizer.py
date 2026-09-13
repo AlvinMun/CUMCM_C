@@ -17,7 +17,6 @@ def optimize_day(price, load, pv, battery):
     discharge_limit = battery.max_discharge_power * DELTA_T
 
     # Variable order:
-    # G C D W S
 
     G0 = 0
     C0 = n

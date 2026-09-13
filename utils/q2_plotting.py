@@ -12,7 +12,6 @@ plt.rcParams["font.sans-serif"] = [
 plt.rcParams["axes.unicode_minus"] = False
 
 
-# Representative-day figure
 
 def plot_representative_day(
     day_name,
@@ -53,7 +52,6 @@ def plot_representative_day(
     plt.close()
 
 
-# Annual figures
 
 def plot_annual_statistics(summary_df, storage_df, save_folder):
 
@@ -62,7 +60,6 @@ def plot_annual_statistics(summary_df, storage_df, save_folder):
 
     days = np.arange(1, len(summary_df) + 1)
 
-    # Figure 2-5(a): Daily purchase cost
 
     plt.figure(figsize=(11, 4))
 
@@ -83,7 +80,6 @@ def plot_annual_statistics(summary_df, storage_df, save_folder):
 
     plt.close()
 
-    # Figure 2-5(b): Annual PV curtailment
     plt.figure(figsize=(11, 4))
 
     plt.bar(days, summary_df["弃光量(kWh)"], width=1.0)
@@ -103,11 +99,8 @@ def plot_annual_statistics(summary_df, storage_df, save_folder):
 
     plt.close()
 
-    # Figure 2-5(c): Continuous SOC over the whole year
 
     soc_matrix = storage_df.iloc[:, 1:].to_numpy()
-
-    # Keep only the first day's 00:00, then remove duplicated midnight points
     soc = soc_matrix[0].copy()
 
     for i in range(1, len(soc_matrix)):
@@ -135,7 +128,6 @@ def plot_annual_statistics(summary_df, storage_df, save_folder):
 
     plt.close()
 
-    # Figure 2-5(d): End-of-day SOC
 
     plt.figure(figsize=(11, 4))
 
