@@ -28,7 +28,6 @@ def optimize_day_q3(
         Emergency purchase        -> 5× electricity price
     """
 
-    # ---------- Initial 00:00 plan ----------
 
     plan = optimize_day(
         price=price,
@@ -55,7 +54,6 @@ def optimize_day_q3(
         ("18:00", 108),
     ]
 
-    # ---------- Rolling optimization ----------
 
     for release, start in updates:
 
@@ -76,7 +74,6 @@ def optimize_day_q3(
         increase = np.maximum(new_purchase - old_plan, 0)
         decrease = np.maximum(old_plan - new_purchase, 0)
 
-        # ---------- Official adjustment pricing ----------
         adjustment_cost += np.sum(
             1.5 * price[start:] * increase * DT
             + 0.5 * price[start:] * decrease * DT
@@ -92,7 +89,6 @@ def optimize_day_q3(
 
         storage[start:] = remain["storage"]
 
-    # ---------- Cost calculation ----------
 
     normal_cost = np.sum(price * planned_purchase * DT)
 
